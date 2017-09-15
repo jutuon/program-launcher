@@ -4,3 +4,9 @@ version = "0.1.0"
 authors = ["Juuso Tuononen <jutuon@outlook.com>"]
 
 [dependencies]
+glium = "0.17.1"
+
+[dependencies.conrod]
+version = "0.54.0"
+features = ["winit", "glium"]
+
