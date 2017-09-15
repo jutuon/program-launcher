@@ -3,6 +3,7 @@
 extern crate conrod;
 
 extern crate glium;
+extern crate backend_library;
 
 pub mod input;
 pub mod window;
@@ -21,7 +22,16 @@ use utils::{FpsCounter, TimeManager};
 const DEFAULT_WINDOW_WIDTH: u32 = 640;
 const DEFAULT_WINDOW_HEIGHT: u32 = 480;
 
+const LIBRARY_FILE_NAME: &'static str = "program_launcher_library.toml";
+
+use backend_library::{ProgramLibraryManager};
+
+
+
 fn main() {
+
+    let library = ProgramLibraryManager::new(LIBRARY_FILE_NAME).expect("library loading error");
+
 
     let mut window = GliumWindow::new("Program launcher", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
     let mut input = InputManager::new();
@@ -36,7 +46,7 @@ fn main() {
         time_manager.update_time(false);
 
         if window.update_input(&mut input, ui.ui_mut()) {
-            ui.set_widgets();
+            ui.set_widgets(&library);
         }
 
         if input.quit() {

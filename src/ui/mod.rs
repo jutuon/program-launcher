@@ -6,24 +6,13 @@ use conrod::{UiBuilder, UiCell, Ui};
 use DEFAULT_WINDOW_HEIGHT;
 use DEFAULT_WINDOW_WIDTH;
 
+use backend_library::ProgramLibraryManager;
 
 pub struct UiManager {
     widget_ids: WidgetIds,
     ui: Ui,
     list_selection_index: usize,
 }
-
-const LIST_ITEMS: [&'static str; 9] = [
-    "test1",
-    "test2",
-    "test3",
-    "test4",
-    "test5",
-    "test6",
-    "test7",
-    "test8",
-    "test9",
-];
 
 impl UiManager {
     pub fn new() -> UiManager {
@@ -47,8 +36,8 @@ impl UiManager {
         &self.ui
     }
 
-    pub fn set_widgets(&mut self) {
-        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &LIST_ITEMS, &mut self.list_selection_index);
+    pub fn set_widgets(&mut self, program_library: &ProgramLibraryManager) {
+        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &mut self.list_selection_index, program_library);
     }
 }
 
@@ -76,7 +65,7 @@ widget_ids! {
 
 
 
-fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, texts: &[&str],selection_i: &mut usize ) {
+fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize, program_library: &ProgramLibraryManager) {
     use conrod::widget::{Canvas, Widget, Button, Text, ListSelect};
     use conrod::{color, Colorable, Labelable, Positionable, Sizeable};
 
@@ -93,7 +82,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, texts: &[&str],selectio
         .set(ids.canvas, &mut ui_cell);
 
 
-    let (mut events, scrollbar) = ListSelect::single(texts.len())
+    let (mut events, scrollbar) = ListSelect::single(program_library.programs().len())
         .flow_down()
         .scrollbar_next_to()
         .item_size(30.0)
@@ -101,7 +90,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, texts: &[&str],selectio
         .top_left_of(ids.canvas_left)
         .set(ids.program_list, &mut ui_cell);
 
-    while let Some(event) = events.next(&ui_cell, |i| i < texts.len()) {
+    while let Some(event) = events.next(&ui_cell, |i| i < program_library.programs().len()) {
         match event {
             Event::Item(item) => {
                 let color = if item.i == *selection_i {
@@ -112,7 +101,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, texts: &[&str],selectio
                 let button = Button::new()
                     .color(color)
                     .label_color(color::BLACK)
-                    .label(texts[item.i]);
+                    .label(&program_library.programs()[item.i].name);
                 item.set(button, &mut ui_cell);
             },
             Event::Selection(selection) => {
@@ -126,7 +115,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, texts: &[&str],selectio
         s.set(&mut ui_cell);
     }
 
-    Text::new(texts[*selection_i])
+    Text::new(&program_library.programs()[*selection_i].name)
         .top_left_of(ids.canvas_program_info)
         .set(ids.program_title, &mut ui_cell);
 
