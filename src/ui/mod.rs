@@ -12,6 +12,7 @@ pub struct UiManager {
     widget_ids: WidgetIds,
     ui: Ui,
     list_selection_index: usize,
+    console_text: String,
 }
 
 impl UiManager {
@@ -25,6 +26,7 @@ impl UiManager {
             widget_ids,
             ui,
             list_selection_index: 0,
+            console_text: String::new(),
         }
     }
 
@@ -36,8 +38,13 @@ impl UiManager {
         &self.ui
     }
 
-    pub fn set_widgets(&mut self, program_library: &ProgramLibraryManager) {
-        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &mut self.list_selection_index, program_library);
+    pub fn update_console_text(&mut self, console_text: &str) {
+        self.console_text.clear();
+        self.console_text.push_str(console_text);
+    }
+
+    pub fn set_widgets(&mut self, program_library: &mut ProgramLibraryManager) {
+        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &mut self.list_selection_index, program_library, &self.console_text);
     }
 }
 
@@ -65,7 +72,7 @@ widget_ids! {
 
 
 
-fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize, program_library: &ProgramLibraryManager) {
+fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize, program_library: &mut ProgramLibraryManager, console_text: &str) {
     use conrod::widget::{Canvas, Widget, Button, Text, ListSelect};
     use conrod::{color, Colorable, Labelable, Positionable, Sizeable};
 
@@ -75,7 +82,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
         .flow_right(&[
             (ids.canvas_left, Canvas::new().color(color::LIGHT_BLUE).length(250.0)),
             (ids.canvas_right, Canvas::new().flow_up(&[
-                (ids.canvas_console, Canvas::new().color(color::LIGHT_GREY).length(250.0)),
+                (ids.canvas_console, Canvas::new().color(color::LIGHT_GREY).scroll_kids().length(250.0)),
                 (ids.canvas_program_info, Canvas::new().pad(10.0).color(color::LIGHT_GRAY))
             ])),
         ])
@@ -126,7 +133,8 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
         .set(ids.button_launch, &mut ui_cell);
 
     for _click in button_event {
-        println!("Launch button");
+        //println!("Launch button");
+        program_library.start_program(*selection_i);
     }
 
     let button_event = Button::new()
@@ -136,11 +144,12 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
         .set(ids.button_update_and_build, &mut ui_cell);
 
     for _click in button_event {
-        println!("Update and build button");
+        //println!("Update and build button");
+        program_library.update_and_build_program(*selection_i);
     }
 
-    Text::new("Console text")
-        .middle_of(ids.canvas_console)
+    Text::new(console_text)
+        .bottom_left_of(ids.canvas_console)
         .set(ids.console_text, &mut ui_cell);
 }
 

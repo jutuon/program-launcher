@@ -22,7 +22,7 @@ use utils::{FpsCounter, TimeManager};
 const DEFAULT_WINDOW_WIDTH: u32 = 640;
 const DEFAULT_WINDOW_HEIGHT: u32 = 480;
 
-const LIBRARY_FILE_NAME: &'static str = "program_launcher_library.toml";
+const LIBRARY_DIRECTORY_NAME: &'static str = "program_launcher_library";
 
 use backend_library::{ProgramLibraryManager};
 
@@ -30,7 +30,7 @@ use backend_library::{ProgramLibraryManager};
 
 fn main() {
 
-    let library = ProgramLibraryManager::new(LIBRARY_FILE_NAME).expect("library loading error");
+    let mut library = ProgramLibraryManager::new(LIBRARY_DIRECTORY_NAME).expect("library loading error");
 
 
     let mut window = GliumWindow::new("Program launcher", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
@@ -45,8 +45,19 @@ fn main() {
     loop {
         time_manager.update_time(false);
 
-        if window.update_input(&mut input, ui.ui_mut()) {
-            ui.set_widgets(&library);
+        let mut console_text_update = false;
+        {
+
+            //let mut new_stdout = library.update();
+            if let Some(text) = library.update() {
+                ui.update_console_text(text);
+                console_text_update = true;
+            }
+
+        }
+
+        if window.update_input(&mut input, ui.ui_mut()) || console_text_update {
+            ui.set_widgets(&mut library);
         }
 
         if input.quit() {
@@ -57,5 +68,7 @@ fn main() {
 
         fps.frame();
         fps.update(time_manager.current_time(), true);
+
+
     }
 }

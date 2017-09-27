@@ -1,7 +1,7 @@
 
 
 use std::io::{Read, Write};
-use std::fs::{File};
+use std::fs::{File, create_dir};
 use std::path::Path;
 
 use Error;
@@ -16,6 +16,7 @@ pub enum BuildSystem {
 pub struct Program {
     pub name: String,
     pub git_repository: String,
+    pub directory_name: String,
     pub build_system: BuildSystem,
 }
 
@@ -32,14 +33,25 @@ const DEFAULT_LIBRARY_FILE: &'static str = "
 [[programs]]
 name = \"Space Boss Battles\"
 git_repository = \"https://github.com/jutuon/space-boss-battles\"
+directory_name = \"space_boss_battles\"
 build_system = \"Cargo\"
 
 
 ";
 
+pub fn create_library_directory_if_not_exists(directory_path: &Path) -> Result<(), Error> {
+    if directory_path.exists() {
+        Ok(())
+    } else {
+        match create_dir(directory_path) {
+            Ok(_) => Ok(()),
+            Err(io_error) => Err(Error::IoError(io_error)),
+        }
+    }
+}
 
-pub fn load_library(file_name: &str) -> Result<ProgramLibrary, Error> {
-    let mut file = match File::open(file_name) {
+pub fn load_library(file_path: &Path) -> Result<ProgramLibrary, Error> {
+    let mut file = match File::open(file_path) {
         Ok(file) => file,
         Err(io_error) => return Err(Error::IoError(io_error)),
     };
@@ -57,19 +69,35 @@ pub fn load_library(file_name: &str) -> Result<ProgramLibrary, Error> {
     }
 }
 
-pub fn save_default_if_file_not_exists(file_name: &str) -> Result<(), Error> {
-    let path = Path::new(file_name);
+pub fn save_default_if_file_not_exists(file_path: &Path) -> Result<(), Error> {
+    if file_path.exists() {
+        return Ok(())
+    } else {
+        let mut file = match File::create(file_path) {
+            Ok(file) => file,
+            Err(io_error) => return Err(Error::IoError(io_error)),
+        };
 
-    if path.exists() {
-        return Ok(());
+        match file.write_all(DEFAULT_LIBRARY_FILE.as_bytes()) {
+            Ok(_) => Ok(()),
+            Err(io_error) => Err(Error::IoError(io_error)),
+        }
     }
+}
 
-    let mut file = match File::create(file_name) {
-        Ok(file) => file,
-        Err(io_error) => return Err(Error::IoError(io_error)),
-    };
+pub fn create_empty_file_if_not_exists(file_path: &Path) -> Result<(), Error> {
+    if file_path.exists() {
+        Ok(())
+    } else {
+        match File::create(file_path) {
+            Ok(_) => Ok(()),
+            Err(io_error) => Err(Error::IoError(io_error)),
+        }
+    }
+}
 
-    match file.write_all(DEFAULT_LIBRARY_FILE.as_bytes()) {
+pub fn write_empty_file(file_path: &Path) -> Result<(), Error> {
+    match File::create(file_path) {
         Ok(_) => Ok(()),
         Err(io_error) => Err(Error::IoError(io_error)),
     }
