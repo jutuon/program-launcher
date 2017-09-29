@@ -2,44 +2,42 @@
 #[macro_use]
 extern crate serde_derive;
 
-extern crate toml;
+extern crate serde_json;
 
-mod data;
-mod task_manager;
+pub mod data;
+pub mod task_manager;
 
 use task_manager::TaskManager;
 
 
-use data::{ProgramLibrary, Program};
+use data::{ProgramLibrary};
 
 use std::path::{Path, PathBuf};
 
 pub struct ProgramLibraryManager {
     program_library: ProgramLibrary,
-    library_directory_name: PathBuf,
     task_manager: TaskManager,
 }
 
-const LIBRARY_FILE_NAME: &'static str = "library.toml";
+const LIBRARY_FILE_NAME: &'static str = "library.json";
 
 impl ProgramLibraryManager {
     pub fn new(library_directory_name: &str) -> Result<ProgramLibraryManager, Error> {
-        let mut path = Path::new(library_directory_name).to_path_buf();
+        // Handle library directory creation
+        let library_directory = Path::new(library_directory_name).to_path_buf();
+        data::create_library_directory_if_not_exists(library_directory.as_path())?;
 
-        data::create_library_directory_if_not_exists(path.as_path())?;
+        // Handle library file creation and loading
+        let mut library_file_path = library_directory.clone();
+        library_file_path.push(LIBRARY_FILE_NAME);
 
-        path.push(LIBRARY_FILE_NAME);
+        data::save_default_if_file_not_exists(library_file_path.as_path(), data::DEFAULT_LIBRARY_FILE)?;
+        let program_library = data::load_library(library_file_path.as_path(), library_directory.as_path())?;
 
-        data::save_default_if_file_not_exists(path.as_path())?;
-        let program_library = data::load_library(path.as_path())?;
-
-        path.pop();
-
-        let task_manager = TaskManager::new(path.as_path());
+        let task_manager = TaskManager::new(library_directory);
 
         let library_manager = ProgramLibraryManager {
             program_library,
-            library_directory_name: path,
             task_manager,
         };
 
@@ -47,38 +45,8 @@ impl ProgramLibraryManager {
     }
 
 
-    pub fn programs(&self) -> &[Program] {
-        &self.program_library.programs
-    }
-
-    pub fn start_program(&mut self, program_index: usize) {
-        let program = &self.program_library.programs[program_index];
-
-        self.library_directory_name.push(&program.directory_name);
-
-        self.task_manager.push(TaskManager::cargo_run(self.library_directory_name.as_path()));
-
-        self.library_directory_name.pop();
-    }
-
-    pub fn update_and_build_program(&mut self, program_index: usize) {
-        let program = &self.program_library.programs[program_index];
-
-        self.library_directory_name.push(&program.directory_name);
-
-        if !self.library_directory_name.exists() {
-            if let Some(path) = self.library_directory_name.parent() {
-                self.task_manager.push(TaskManager::git_clone(&program.git_repository, &program.directory_name, path));
-            } else {
-                println!("directory parent directory not found from path");
-                return;
-            }
-        }
-
-        self.task_manager.push(TaskManager::cargo_build(self.library_directory_name.as_path()));
-        self.task_manager.push(TaskManager::git_pull(self.library_directory_name.as_path()));
-
-        self.library_directory_name.pop();
+    pub fn task_manager_mut_and_programs(&mut self) -> (&mut TaskManager,  &ProgramLibrary) {
+        (&mut self.task_manager, &self.program_library)
     }
 
     pub fn update(&mut self) -> Option<&str> {
@@ -88,7 +56,7 @@ impl ProgramLibraryManager {
 
 #[derive(Debug)]
 pub enum Error {
-    ParseError(toml::de::Error),
+    ParseError(serde_json::error::Error),
     IoError(std::io::Error),
 }
 

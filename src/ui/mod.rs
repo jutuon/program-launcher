@@ -6,7 +6,9 @@ use conrod::{UiBuilder, UiCell, Ui};
 use DEFAULT_WINDOW_HEIGHT;
 use DEFAULT_WINDOW_WIDTH;
 
-use backend_library::ProgramLibraryManager;
+use backend_library::task_manager::TaskManager;
+use backend_library::data::ProgramLibrary;
+
 
 pub struct UiManager {
     widget_ids: WidgetIds,
@@ -43,11 +45,10 @@ impl UiManager {
         self.console_text.push_str(console_text);
     }
 
-    pub fn set_widgets(&mut self, program_library: &mut ProgramLibraryManager) {
-        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &mut self.list_selection_index, program_library, &self.console_text);
+    pub fn set_widgets(&mut self, task_manager: &mut TaskManager, programs: &ProgramLibrary) {
+        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &mut self.list_selection_index, task_manager, programs, &self.console_text);
     }
 }
-
 
 widget_ids! {
     struct WidgetIds {
@@ -62,8 +63,7 @@ widget_ids! {
         console_text,
 
         program_title,
-        button_launch,
-        button_update_and_build,
+        program_commands_list,
 
         program_list,
 
@@ -72,11 +72,13 @@ widget_ids! {
 
 
 
-fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize, program_library: &mut ProgramLibraryManager, console_text: &str) {
-    use conrod::widget::{Canvas, Widget, Button, Text, ListSelect};
+fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize, task_manager: &mut TaskManager, program_library: &ProgramLibrary, console_text: &str) {
+    use conrod::widget::{Canvas, Widget, Button, Text, ListSelect, List};
     use conrod::{color, Colorable, Labelable, Positionable, Sizeable};
 
     use conrod::widget::list_select::Event;
+
+    // UI layout
 
     Canvas::new()
         .flow_right(&[
@@ -89,7 +91,9 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
         .set(ids.canvas, &mut ui_cell);
 
 
-    let (mut events, scrollbar) = ListSelect::single(program_library.programs().len())
+    // Program list
+
+    let (mut events, scrollbar) = ListSelect::single(program_library.programs.len())
         .flow_down()
         .scrollbar_next_to()
         .item_size(30.0)
@@ -97,7 +101,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
         .top_left_of(ids.canvas_left)
         .set(ids.program_list, &mut ui_cell);
 
-    while let Some(event) = events.next(&ui_cell, |i| i < program_library.programs().len()) {
+    while let Some(event) = events.next(&ui_cell, |i| i < program_library.programs.len()) {
         match event {
             Event::Item(item) => {
                 let color = if item.i == *selection_i {
@@ -108,7 +112,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
                 let button = Button::new()
                     .color(color)
                     .label_color(color::BLACK)
-                    .label(&program_library.programs()[item.i].name);
+                    .label(&program_library.programs[item.i].name);
                 item.set(button, &mut ui_cell);
             },
             Event::Selection(selection) => {
@@ -122,31 +126,43 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
         s.set(&mut ui_cell);
     }
 
-    Text::new(&program_library.programs()[*selection_i].name)
+    // Current program
+
+    let current_program = &program_library.programs[*selection_i];
+
+    Text::new(&current_program.name)
         .top_left_of(ids.canvas_program_info)
         .set(ids.program_title, &mut ui_cell);
 
-    let button_event = Button::new()
-        .label("Launch")
+
+    let (mut items, scrollbar) = List::flow_right(current_program.command_queues.len())
+        .item_size(150.0)
+        .w_of(ids.canvas_program_info)
+        .h(50.0)
         .down_from(ids.program_title, 10.0)
-        .w_h(100.0,50.0)
-        .set(ids.button_launch, &mut ui_cell);
+        .set(ids.program_commands_list, &mut ui_cell);
 
-    for _click in button_event {
-        //println!("Launch button");
-        program_library.start_program(*selection_i);
+    while let Some(item) = items.next(&ui_cell) {
+        let current_command_queue = &current_program.command_queues[item.i];
+
+        let button = Button::new()
+            .label(&current_command_queue.name)
+            .color(color::GRAY)
+            .label_color(color::BLACK);
+
+        let button_event = item.set(button, &mut ui_cell);
+
+        for _click in button_event {
+            task_manager.new_queue_if_no_running_process(&current_command_queue.commands, &current_program.working_directory, &current_program.download_command);
+        }
     }
 
-    let button_event = Button::new()
-        .label("Update and build")
-        .right_from(ids.button_launch, 10.0)
-        .w_h(150.0,50.0)
-        .set(ids.button_update_and_build, &mut ui_cell);
-
-    for _click in button_event {
-        //println!("Update and build button");
-        program_library.update_and_build_program(*selection_i);
+    if let Some(s) = scrollbar {
+        s.set(&mut ui_cell);
     }
+
+    // Console
+
 
     Text::new(console_text)
         .bottom_left_of(ids.canvas_console)

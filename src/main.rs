@@ -57,7 +57,8 @@ fn main() {
         }
 
         if window.update_input(&mut input, ui.ui_mut()) || console_text_update {
-            ui.set_widgets(&mut library);
+            let (task_manager, programs) = library.task_manager_mut_and_programs();
+            ui.set_widgets(task_manager, programs);
         }
 
         if input.quit() {
