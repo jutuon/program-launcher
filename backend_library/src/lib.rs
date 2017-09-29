@@ -12,7 +12,8 @@ use task_manager::TaskManager;
 
 use data::{ProgramLibrary};
 
-use std::path::{Path, PathBuf};
+use std::path::{Path};
+use std::collections::VecDeque;
 
 pub struct ProgramLibraryManager {
     program_library: ProgramLibrary,
@@ -49,7 +50,7 @@ impl ProgramLibraryManager {
         (&mut self.task_manager, &self.program_library)
     }
 
-    pub fn update(&mut self) -> Option<&str> {
+    pub fn update<'a>(&'a mut self) -> Option<Event<'a>> {
         self.task_manager.update()
     }
 }
@@ -58,6 +59,11 @@ impl ProgramLibraryManager {
 pub enum Error {
     ParseError(serde_json::error::Error),
     IoError(std::io::Error),
+}
+
+
+pub enum Event<'a> {
+    ConsoleUpdate(&'a VecDeque<String>)
 }
 
 

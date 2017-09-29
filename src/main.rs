@@ -24,7 +24,7 @@ const DEFAULT_WINDOW_HEIGHT: u32 = 480;
 
 const LIBRARY_DIRECTORY_NAME: &'static str = "program_launcher_library";
 
-use backend_library::{ProgramLibraryManager};
+use backend_library::{ProgramLibraryManager, Event};
 
 
 
@@ -47,13 +47,10 @@ fn main() {
 
         let mut console_text_update = false;
         {
-
-            //let mut new_stdout = library.update();
-            if let Some(text) = library.update() {
-                ui.update_console_text(text);
+            if let Some(Event::ConsoleUpdate(console_lines)) = library.update() {
                 console_text_update = true;
+                ui.update_console_text(console_lines);
             }
-
         }
 
         if window.update_input(&mut input, ui.ui_mut()) || console_text_update {
@@ -65,9 +62,12 @@ fn main() {
             break;
         }
 
+        //std::thread::sleep(std::time::Duration::from_millis(16));
+
         renderer.render(&mut window, &mut ui);
 
         fps.frame();
+
         fps.update(time_manager.current_time(), true);
 
 

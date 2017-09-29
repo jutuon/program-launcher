@@ -9,6 +9,7 @@ use DEFAULT_WINDOW_WIDTH;
 use backend_library::task_manager::TaskManager;
 use backend_library::data::ProgramLibrary;
 
+use std::collections::VecDeque;
 
 pub struct UiManager {
     widget_ids: WidgetIds,
@@ -40,9 +41,15 @@ impl UiManager {
         &self.ui
     }
 
-    pub fn update_console_text(&mut self, console_text: &str) {
+    pub fn update_console_text(&mut self, console_text: &VecDeque<String>) {
+        // TODO: long console lines may cause problems like running out of memory
+        // TODO: copying all text at every update is inefficient
         self.console_text.clear();
-        self.console_text.push_str(console_text);
+
+        for text in console_text {
+            self.console_text.push_str(text);
+            self.console_text.push('\n');
+        }
     }
 
     pub fn set_widgets(&mut self, task_manager: &mut TaskManager, programs: &ProgramLibrary) {
@@ -84,7 +91,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
         .flow_right(&[
             (ids.canvas_left, Canvas::new().color(color::LIGHT_BLUE).length(250.0)),
             (ids.canvas_right, Canvas::new().flow_up(&[
-                (ids.canvas_console, Canvas::new().color(color::LIGHT_GREY).scroll_kids().length(250.0)),
+                (ids.canvas_console, Canvas::new().color(color::LIGHT_GREY).pad(10.0).scroll_kids_vertically().length(250.0)),
                 (ids.canvas_program_info, Canvas::new().pad(10.0).color(color::LIGHT_GRAY))
             ])),
         ])
@@ -166,6 +173,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
 
     Text::new(console_text)
         .bottom_left_of(ids.canvas_console)
+        .w_of(ids.canvas_console)
         .set(ids.console_text, &mut ui_cell);
 }
 

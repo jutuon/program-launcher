@@ -8,10 +8,17 @@ use std::io::{Read};
 use std::sync::mpsc;
 use std::thread;
 
+use std::collections::VecDeque;
+
+const MAX_LINES: usize = 100;
+
+use Event;
+
+
 pub struct TaskManager {
     queue: Vec<Command>,
     running_process: Option<Child>,
-    stdout_and_stderr_string: String,
+    console_lines: VecDeque<String>,
     byte_vec: Vec<u8>,
     stdout_receiver: Option<mpsc::Receiver<u8>>,
     stderr_receiver: Option<mpsc::Receiver<u8>>,
@@ -23,7 +30,7 @@ impl TaskManager {
     pub fn new(library_directory: PathBuf) -> TaskManager {
         TaskManager {
             queue: vec![],
-            stdout_and_stderr_string: String::new(),
+            console_lines: VecDeque::new(),
             running_process: None,
             byte_vec: vec![],
             stdout_receiver: None,
@@ -32,8 +39,13 @@ impl TaskManager {
         }
     }
 
+    pub fn console_lines(&self) -> &VecDeque<String> {
+        &self.console_lines
+    }
+
+
     /// Return new console text if there is new text
-    pub fn update(&mut self) -> Option<&str> {
+    pub fn update<'a>(&'a mut self) -> Option<Event<'a>> {
         let mut process_finished = false;
         let mut stdout_or_stderr_update = false;
 
@@ -67,10 +79,15 @@ impl TaskManager {
         self.pop_and_execute();
 
         if stdout_or_stderr_update {
-            let text = String::from_utf8_lossy(&self.byte_vec);
-            self.stdout_and_stderr_string.push_str(&text);
+            for line in String::from_utf8_lossy(&self.byte_vec).lines() {
+                self.console_lines.push_back(line.to_string());
+            }
 
-            Some(&self.stdout_and_stderr_string)
+            while self.console_lines.len() > MAX_LINES {
+                self.console_lines.pop_front();
+            }
+
+            Some(Event::ConsoleUpdate(&self.console_lines))
         } else {
             None
         }
