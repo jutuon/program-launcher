@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::io::{Read};
 
+use std::fmt::Write;
+
 use std::sync::mpsc;
 use std::thread;
 
@@ -51,6 +53,7 @@ impl TaskManager {
 
         if let Some(ref mut child) = self.running_process {
             if let Ok(Some(exit_status)) = child.try_wait() {
+                // TODO: if exit status is non zero, clear command queue
                 println!("{}", exit_status);
                 process_finished = true;
             }
@@ -76,7 +79,11 @@ impl TaskManager {
             self.running_process = None
         }
 
-        self.pop_and_execute();
+        let update_console =  if let Some(Event::ConsoleUpdate(_)) = self.pop_and_execute() {
+            true
+        } else {
+            false
+        };
 
         if stdout_or_stderr_update {
             for line in String::from_utf8_lossy(&self.byte_vec).lines() {
@@ -86,7 +93,9 @@ impl TaskManager {
             while self.console_lines.len() > MAX_LINES {
                 self.console_lines.pop_front();
             }
+        }
 
+        if update_console || stdout_or_stderr_update {
             Some(Event::ConsoleUpdate(&self.console_lines))
         } else {
             None
@@ -94,12 +103,16 @@ impl TaskManager {
     }
 
     /// Starts new process from the queue if there not currently exists an running process.
-    pub fn pop_and_execute(&mut self) {
+    pub fn pop_and_execute<'a>(&'a mut self) -> Option<Event<'a>> {
         if self.running_process.is_some() {
-            return;
+            return None;
         }
 
         if let Some(mut command) = self.queue.pop() {
+            let mut text = String::new();
+            writeln!(text, "\nStarted program: {:?}", command).unwrap();
+            self.console_lines.push_back(text);
+
             match command.spawn() {
                 Ok(mut child) => {
                     if let Some(stdout) = child.stdout {
@@ -128,9 +141,19 @@ impl TaskManager {
 
                     self.running_process = Some(child);
                 }
-                Err(error) => println!("error: {}", error),
+                Err(error) => {
+                    // TODO: clear command queue
+
+                    println!("error: {}", error);
+
+                    let mut text = String::new();
+                    writeln!(text, "\nerror: {}", error).unwrap();
+                    self.console_lines.push_back(text);
+                }
             }
         }
+
+        Some(Event::ConsoleUpdate(&self.console_lines))
     }
 
     /// Sets new commands to queue if there is not process running. If working directory is not found
