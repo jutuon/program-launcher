@@ -11,6 +11,8 @@ use backend_library::data::ProgramLibrary;
 
 use std::collections::VecDeque;
 
+use window::Window;
+
 pub struct UiManager {
     widget_ids: WidgetIds,
     ui: Ui,
@@ -52,14 +54,22 @@ impl UiManager {
         }
     }
 
-    pub fn set_widgets(&mut self, task_manager: &mut TaskManager, programs: &ProgramLibrary) {
-        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &mut self.list_selection_index, task_manager, programs, &self.console_text);
+    pub fn set_widgets<T: Window>(&mut self, task_manager: &mut TaskManager, programs: &ProgramLibrary, window: &mut T) {
+        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &mut self.list_selection_index, task_manager, programs, &self.console_text, window);
     }
 }
 
 widget_ids! {
     struct WidgetIds {
+
         canvas,
+
+        tabs,
+
+        // Library tab
+        canvas_library,
+
+        canvas_library_layout,
 
         canvas_left,
         canvas_right,
@@ -74,13 +84,19 @@ widget_ids! {
 
         program_list,
 
+        // Settings tab
+        canvas_settings,
+
+        toggle_full_screen,
+        text_full_screen,
+
     }
 }
 
 
 
-fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize, task_manager: &mut TaskManager, program_library: &ProgramLibrary, console_text: &str) {
-    use conrod::widget::{Canvas, Widget, Button, Text, ListSelect, List};
+fn set_widgets<T: Window>(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize, task_manager: &mut TaskManager, program_library: &ProgramLibrary, console_text: &str, window: &mut T) {
+    use conrod::widget::{Canvas, Widget, Button, Text, ListSelect, List, Tabs, Toggle};
     use conrod::{color, Colorable, Labelable, Positionable, Sizeable};
 
     use conrod::widget::list_select::Event;
@@ -88,6 +104,20 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
     // UI layout
 
     Canvas::new()
+        .color(color::GREEN)
+        .set(ids.canvas, &mut ui_cell);
+
+    Tabs::new(&[(ids.canvas_library, "Library"), (ids.canvas_settings, "Settings")])
+        .starting_canvas(ids.canvas_library)
+        .middle_of(ids.canvas)
+        .wh_of(ids.canvas)
+        .color(color::LIGHT_GRAY)
+        .layout_horizontally()
+        .set(ids.tabs, &mut ui_cell);
+
+    Canvas::new()
+        .top_left_of(ids.canvas_library)
+        .wh_of(ids.canvas_library)
         .flow_right(&[
             (ids.canvas_left, Canvas::new().color(color::LIGHT_BLUE).length(250.0)),
             (ids.canvas_right, Canvas::new().flow_up(&[
@@ -95,7 +125,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
                 (ids.canvas_program_info, Canvas::new().pad(10.0).color(color::LIGHT_GRAY))
             ])),
         ])
-        .set(ids.canvas, &mut ui_cell);
+        .set(ids.canvas_library_layout, &mut ui_cell);
 
 
     // Program list
@@ -145,7 +175,7 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
     let (mut items, scrollbar) = List::flow_right(current_program.command_queues.len())
         .item_size(150.0)
         .w_of(ids.canvas_program_info)
-        .h(50.0)
+        .h(40.0)
         .down_from(ids.program_title, 10.0)
         .set(ids.program_commands_list, &mut ui_cell);
 
@@ -175,5 +205,30 @@ fn set_widgets(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize
         .bottom_left_of(ids.canvas_console)
         .w_of(ids.canvas_console)
         .set(ids.console_text, &mut ui_cell);
+
+
+    // Settings
+
+    let event = Toggle::new(window.full_screen())
+        .label("Full screen mode")
+        .label_color(color::WHITE)
+        .w_h(150.0, 50.0)
+        .color(color::LIGHT_BLUE)
+        .top_left_with_margin_on(ids.canvas_settings, 20.0)
+        .set(ids.toggle_full_screen, &mut ui_cell);
+
+    let text = if window.full_screen() {
+        "Enabled"
+    } else {
+        "Disabled"
+    };
+
+    Text::new(text)
+        .right_from(ids.toggle_full_screen, 20.0)
+        .set(ids.text_full_screen, &mut ui_cell);
+
+    for new_state in event {
+        window.set_full_screen(new_state);
+    }
 }
 

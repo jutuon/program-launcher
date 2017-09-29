@@ -30,10 +30,18 @@ use backend_library::{ProgramLibraryManager, Event};
 
 fn main() {
 
+    let mut full_screen = false;
+
+    for arg in std::env::args().skip(1) {
+        if arg == "--fullscreen" {
+            full_screen = true;
+        }
+    }
+
     let mut library = ProgramLibraryManager::new(LIBRARY_DIRECTORY_NAME).expect("library loading error");
 
 
-    let mut window = GliumWindow::new("Program launcher", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
+    let mut window = GliumWindow::new("Program launcher", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, full_screen);
     let mut input = InputManager::new();
     let mut ui = ui::UiManager::new();
 
@@ -55,7 +63,7 @@ fn main() {
 
         if window.update_input(&mut input, ui.ui_mut()) || console_text_update {
             let (task_manager, programs) = library.task_manager_mut_and_programs();
-            ui.set_widgets(task_manager, programs);
+            ui.set_widgets(task_manager, programs, &mut window);
         }
 
         if input.quit() {

@@ -21,12 +21,15 @@ use glium::glutin::{
     EventsLoop,
     ContextBuilder,
     GlRequest,
-    Api
+    Api,
 };
+
+use glium::glutin;
 
 pub struct GliumWindow {
     display: Display,
     event_loop: EventsLoop,
+    full_screen: bool,
 }
 
 impl GliumWindow {
@@ -36,12 +39,17 @@ impl GliumWindow {
 }
 
 impl Window for GliumWindow {
-    fn new(title: &str, width: u32, height: u32) -> Self {
+    fn new(title: &str, width: u32, height: u32, full_screen: bool) -> Self {
         let event_loop = EventsLoop::new();
 
-        let window = WindowBuilder::new()
-            .with_title(title)
-            .with_dimensions(width, height);
+        let mut window = WindowBuilder::new()
+            .with_title(title);
+
+        if full_screen {
+            window = window.with_fullscreen(glutin::get_primary_monitor());
+        } else {
+            window = window.with_dimensions(width, height);
+        }
 
         let context = ContextBuilder::new()
             .with_gl(GlRequest::Specific(Api::OpenGlEs, (2,0)));
@@ -51,6 +59,7 @@ impl Window for GliumWindow {
         GliumWindow {
             display,
             event_loop,
+            full_screen,
         }
     }
 
@@ -79,6 +88,15 @@ impl Window for GliumWindow {
 
     fn draw(&mut self) -> Frame {
         self.display.draw()
+    }
+
+    fn full_screen(&self) -> bool {
+        self.full_screen
+    }
+
+    fn set_full_screen(&mut self, value: bool) {
+        self.full_screen = value;
+        // TODO: full screen support
     }
 }
 
