@@ -5,6 +5,7 @@ authors = ["Juuso Tuononen <jutuon@outlook.com>"]
 
 [dependencies]
 glium = "0.17.1"
+gilrs = "0.4"
 backend_library = { path = "backend_library"}
 
 [dependencies.conrod]

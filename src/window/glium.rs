@@ -11,6 +11,8 @@ use glium::{Display, Frame};
 
 use std::rc::Rc;
 
+use gilrs::{Gilrs};
+use gilrs;
 
 use utils::TimeMilliseconds;
 
@@ -32,6 +34,8 @@ pub struct GliumWindow {
     display: Display,
     event_loop: EventsLoop,
     full_screen: bool,
+    window_focused: bool,
+    game_controllers: Gilrs,
 }
 
 impl GliumWindow {
@@ -62,15 +66,18 @@ impl Window for GliumWindow {
             display,
             event_loop,
             full_screen,
+            window_focused: true,
+            game_controllers: Gilrs::new(),
         }
     }
 
     fn update_input<T: InputUpdater>(&mut self, update: &mut T, ui: &mut Ui, current_time: &TimeMilliseconds) -> bool {
         let display = &self.display;
         let mut event_update = false;
+        let mut window_focused = self.window_focused;
 
         self.event_loop.poll_events(|event| {
-            match event {
+            match event.clone() {
                 Event::WindowEvent { event: WindowEvent::Closed, ..} => {
                     update.set_quit(true);
                     event_update = true;
@@ -80,6 +87,7 @@ impl Window for GliumWindow {
                         event_update = true;
                     }
                 }
+                Event::WindowEvent { event: WindowEvent::Focused(value), ..} => window_focused = value,
                 //event => println!("{:?}", event),
                 _ => (),
             };
@@ -89,6 +97,14 @@ impl Window for GliumWindow {
                 event_update = true;
             }
         });
+
+        self.window_focused = window_focused;
+
+        for (_, e) in self.game_controllers.poll_events() {
+            if self.window_focused && handle_game_controller_input(update, e, current_time) {
+                event_update = true;
+            }
+        }
 
         return event_update;
     }
@@ -137,5 +153,56 @@ fn handle_keyboard_input<T: InputUpdater>(update: &mut T, keyboard_input: Keyboa
     updated_input
 }
 
+/// Returns true if InputUpdater was updated.
+fn handle_game_controller_input<T: InputUpdater>(update: &mut T, event: gilrs::Event, current_time: &TimeMilliseconds) -> bool {
+    let mut updated_input = true;
 
+    use gilrs::Event::{ButtonReleased, ButtonPressed, AxisChanged};
+    use gilrs::Button::{South, DPadUp, DPadDown, DPadLeft, DPadRight};
+
+    use gilrs::Axis::{LeftStickX, LeftStickY};
+
+    use input::utils::KeyEvent::{KeyDown, KeyUp};
+
+    match event {
+        ButtonReleased(South, _)     => update.set_select(true),
+
+        ButtonPressed(DPadLeft, _)  => update.update_left(KeyDown, current_time),
+        ButtonPressed(DPadRight, _) => update.update_right(KeyDown, current_time),
+        ButtonPressed(DPadUp,_)     => update.update_up(KeyDown, current_time),
+        ButtonPressed(DPadDown,_)   => update.update_down(KeyDown, current_time),
+
+        ButtonReleased(DPadLeft, _)   => update.update_left(KeyUp, current_time),
+        ButtonReleased(DPadRight, _)  => update.update_right(KeyUp, current_time),
+        ButtonReleased(DPadUp, _)     => update.update_up(KeyUp, current_time),
+        ButtonReleased(DPadDown, _)   => update.update_down(KeyUp, current_time),
+
+        AxisChanged(LeftStickX, value, _) => {
+            let limit = 0.3;
+            if value >= limit {
+                update.update_right(KeyDown, current_time);
+            } else if value <= -limit {
+                update.update_left(KeyDown, current_time);
+            } else {
+                update.update_left(KeyUp, current_time);
+                update.update_right(KeyUp, current_time);
+            }
+        }
+
+        AxisChanged(LeftStickY, value, _) => {
+            let limit = 0.3;
+            if value >= limit {
+                update.update_up(KeyDown, current_time);
+            } else if value <= -limit {
+                update.update_down(KeyDown, current_time);
+            } else {
+                update.update_up(KeyUp, current_time);
+                update.update_down(KeyUp, current_time);
+            }
+        }
+        _ => updated_input = false,
+    }
+
+    updated_input
+}
 

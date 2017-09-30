@@ -3,6 +3,8 @@
 extern crate conrod;
 
 extern crate glium;
+extern crate gilrs;
+
 extern crate backend_library;
 
 pub mod input;
