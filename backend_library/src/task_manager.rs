@@ -22,6 +22,8 @@ pub struct TaskManager {
     running_process: Option<Child>,
     console_lines: VecDeque<String>,
     byte_vec: Vec<u8>,
+    stdout_thread_handle: Option<thread::JoinHandle<()>>,
+    stderr_thread_handle: Option<thread::JoinHandle<()>>,
     stdout_receiver: Option<mpsc::Receiver<u8>>,
     stderr_receiver: Option<mpsc::Receiver<u8>>,
     library_directory: PathBuf,
@@ -37,6 +39,8 @@ impl TaskManager {
             byte_vec: vec![],
             stdout_receiver: None,
             stderr_receiver: None,
+            stderr_thread_handle: None,
+            stdout_thread_handle: None,
             library_directory,
         }
     }
@@ -49,29 +53,20 @@ impl TaskManager {
     /// Return new console text if there is new text
     pub fn update<'a>(&'a mut self) -> Option<Event<'a>> {
         let mut process_finished = false;
-        let mut stdout_or_stderr_update = false;
 
         if let Some(ref mut child) = self.running_process {
             if let Ok(Some(exit_status)) = child.try_wait() {
                 // TODO: if exit status is non zero, clear command queue
                 println!("{}", exit_status);
                 process_finished = true;
-            }
-        }
 
-        self.byte_vec.clear();
+                if let Some(thread_handle) = self.stdout_thread_handle.take() {
+                    thread_handle.join().unwrap();
+                }
 
-        if let Some(ref stdout) = self.stdout_receiver {
-            for byte in stdout.try_iter() {
-                self.byte_vec.push(byte);
-                stdout_or_stderr_update = true;
-            }
-        }
-
-        if let Some(ref stderr) = self.stderr_receiver {
-            for byte in stderr.try_iter() {
-                self.byte_vec.push(byte);
-                stdout_or_stderr_update = true;
+                if let Some(thread_handle) = self.stderr_thread_handle.take() {
+                    thread_handle.join().unwrap();
+                }
             }
         }
 
@@ -79,11 +74,39 @@ impl TaskManager {
             self.running_process = None
         }
 
-        let update_console =  if let Some(Event::ConsoleUpdate(_)) = self.pop_and_execute() {
-            true
+        let mut stdout_or_stderr_update = false;
+
+        self.byte_vec.clear();
+
+        if process_finished {
+            if let Some(stdout) = self.stdout_receiver.take() {
+                for byte in stdout.iter() {
+                    self.byte_vec.push(byte);
+                    stdout_or_stderr_update = true;
+                }
+            }
+
+            if let Some(stderr) = self.stderr_receiver.take() {
+                for byte in stderr.iter() {
+                    self.byte_vec.push(byte);
+                    stdout_or_stderr_update = true;
+                }
+            }
         } else {
-            false
-        };
+            if let Some(ref stdout) = self.stdout_receiver {
+                for byte in stdout.try_iter() {
+                    self.byte_vec.push(byte);
+                    stdout_or_stderr_update = true;
+                }
+            }
+
+            if let Some(ref stderr) = self.stderr_receiver {
+                for byte in stderr.try_iter() {
+                    self.byte_vec.push(byte);
+                    stdout_or_stderr_update = true;
+                }
+            }
+        }
 
         if stdout_or_stderr_update {
             for line in String::from_utf8_lossy(&self.byte_vec).lines() {
@@ -94,6 +117,12 @@ impl TaskManager {
                 self.console_lines.pop_front();
             }
         }
+
+        let update_console = if let Some(Event::ConsoleUpdate(_)) = self.pop_and_execute() {
+            true
+        } else {
+            false
+        };
 
         if update_console || stdout_or_stderr_update {
             Some(Event::ConsoleUpdate(&self.console_lines))
@@ -122,9 +151,9 @@ impl TaskManager {
                         self.stdout_receiver = Some(receiver);
 
                         // This thread should automatically close when process exits.
-                        thread::spawn(move || {
+                        self.stdout_thread_handle = Some(thread::spawn(move || {
                             read_and_send_process_output(stdout, transmitter);
-                        });
+                        }));
                     }
 
                     if let Some(stderr) = child.stderr {
@@ -134,9 +163,9 @@ impl TaskManager {
                         self.stderr_receiver = Some(receiver);
 
                         // This thread should automatically close when process exits.
-                        thread::spawn(move || {
+                        self.stderr_thread_handle = Some(thread::spawn(move || {
                             read_and_send_process_output(stderr, transmitter);
-                        });
+                        }));
                     }
 
                     self.running_process = Some(child);
