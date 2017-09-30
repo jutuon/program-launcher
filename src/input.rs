@@ -10,6 +10,7 @@ pub struct InputManager {
     left: KeyHitGenerator,
     up: KeyHitGenerator,
     down: KeyHitGenerator,
+    select: bool,
 }
 
 impl InputManager {
@@ -20,6 +21,7 @@ impl InputManager {
             left: KeyHitGenerator::new(),
             up: KeyHitGenerator::new(),
             down: KeyHitGenerator::new(),
+            select: false,
         }
     }
 
@@ -37,6 +39,7 @@ pub trait InputUpdater {
     fn update_left(&mut self, key_event: KeyEvent, current_time: &TimeMilliseconds);
     fn update_up(&mut self, key_event: KeyEvent, current_time: &TimeMilliseconds);
     fn update_down(&mut self, key_event: KeyEvent, current_time: &TimeMilliseconds);
+    fn set_select(&mut self, value: bool);
 }
 
 
@@ -46,13 +49,16 @@ pub trait Input {
     fn left(&mut self) -> bool;
     fn up(&mut self) -> bool;
     fn down(&mut self) -> bool;
+    fn select(&mut self) -> bool;
 }
 
 impl InputUpdater for InputManager {
     fn set_quit(&mut self, value: bool) {
         self.quit = value;
     }
-
+    fn set_select(&mut self, value: bool) {
+        self.select = value;
+    }
     fn update_right(&mut self, key_event: KeyEvent, current_time: &TimeMilliseconds) { self.right.update_from_key_event(key_event, current_time) }
     fn update_left(&mut self, key_event: KeyEvent, current_time: &TimeMilliseconds) { self.left.update_from_key_event(key_event, current_time) }
     fn update_up(&mut self, key_event: KeyEvent, current_time: &TimeMilliseconds) { self.up.update_from_key_event(key_event, current_time) }
@@ -65,6 +71,14 @@ impl Input for InputManager {
     fn left(&mut self) -> bool { self.left.key_hit() }
     fn up(&mut self) -> bool { self.up.key_hit() }
     fn down(&mut self) -> bool { self.down.key_hit() }
+    fn select(&mut self) -> bool {
+        if self.select {
+            self.select = false;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 

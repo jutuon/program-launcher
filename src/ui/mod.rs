@@ -19,6 +19,8 @@ pub struct UiManager {
     widget_ids: WidgetIds,
     ui: Ui,
     list_selection_index: usize,
+    command_queue_i: usize,
+    launch_command_queue: bool,
     console_text: String,
 }
 
@@ -33,6 +35,8 @@ impl UiManager {
             widget_ids,
             ui,
             list_selection_index: 0,
+            command_queue_i: 0,
+            launch_command_queue: false,
             console_text: String::new(),
         }
     }
@@ -58,28 +62,69 @@ impl UiManager {
 
     /// Return true if ui needs updating
     pub fn input_update<T: Input>(&mut self, input: &mut T, programs: &ProgramLibrary) -> bool {
+        if programs.programs.len() == 0 {
+            return false;
+        }
+
         let mut update_ui = false;
 
         if input.down() {
             self.list_selection_index += 1;
-            update_ui = true;
+
             if self.list_selection_index >= programs.programs.len() {
-                self.list_selection_index = programs.programs.len() - 1;
+                self.list_selection_index = 0;
             }
+
+            update_ui = true;
+            self.command_queue_i = 0;
         }
 
         if input.up() {
             if self.list_selection_index > 0 {
                 self.list_selection_index -= 1;
-                update_ui = true;
+            } else {
+                self.list_selection_index = programs.programs.len() - 1;
             }
+
+            update_ui = true;
+            self.command_queue_i = 0;
+        }
+
+        let command_queues = &programs.programs[self.list_selection_index].command_queues;
+
+        if command_queues.len() == 0 {
+            return update_ui;
+        }
+
+        if input.right() {
+            self.command_queue_i += 1;
+            update_ui = true;
+
+            if self.command_queue_i >= command_queues.len() {
+                self.command_queue_i = 0;
+            }
+        }
+
+        if input.left() {
+            if self.command_queue_i > 0 {
+                self.command_queue_i -= 1;
+            } else {
+                self.command_queue_i = command_queues.len() - 1;
+            }
+
+            update_ui = true;
+        }
+
+        if input.select() {
+            self.launch_command_queue = true;
         }
 
         update_ui
     }
 
     pub fn set_widgets<T: Window>(&mut self, task_manager: &mut TaskManager, programs: &ProgramLibrary, window: &mut T) {
-        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &mut self.list_selection_index, task_manager, programs, &self.console_text, window);
+        set_widgets(self.ui.set_widgets(), &mut self.widget_ids, &mut self.list_selection_index, task_manager, programs, &self.console_text, window, &mut self.command_queue_i, self.launch_command_queue);
+        self.launch_command_queue = false;
     }
 }
 
@@ -119,7 +164,7 @@ widget_ids! {
 
 
 
-fn set_widgets<T: Window>(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize, task_manager: &mut TaskManager, program_library: &ProgramLibrary, console_text: &str, window: &mut T) {
+fn set_widgets<T: Window>(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i: &mut usize, task_manager: &mut TaskManager, program_library: &ProgramLibrary, console_text: &str, window: &mut T, command_queue_i: &mut usize, launch_command_queue: bool) {
     use conrod::widget::{Canvas, Widget, Button, Text, ListSelect, List, Tabs, Toggle};
     use conrod::{color, Colorable, Labelable, Positionable, Sizeable};
 
@@ -233,25 +278,41 @@ fn set_widgets<T: Window>(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i:
         .set(ids.program_title, &mut ui_cell);
 
 
-    let (mut items, scrollbar) = List::flow_right(current_program.command_queues.len())
+    let (mut items, scrollbar) = ListSelect::new(current_program.command_queues.len(), ClickMode(Single{}))
+        .flow_right()
         .item_size(150.0)
         .w_of(ids.canvas_program_info)
         .h(40.0)
         .down_from(ids.program_title, 10.0)
         .set(ids.program_commands_list, &mut ui_cell);
 
-    while let Some(item) = items.next(&ui_cell) {
-        let current_command_queue = &current_program.command_queues[item.i];
+    while let Some(event) = items.next(&ui_cell, |i| i < current_program.command_queues.len()) {
+        match event {
+            Event::Item(item) => {
+                let current_command_queue = &current_program.command_queues[item.i];
 
-        let button = Button::new()
-            .label(&current_command_queue.name)
-            .color(color::GRAY)
-            .label_color(color::BLACK);
+                let color = if item.i == *command_queue_i {
+                    if launch_command_queue {
+                        task_manager.new_queue_if_no_running_process(&current_command_queue.commands, &current_program.working_directory, &current_program.download_command);
+                    }
+                    color::LIGHT_GREEN
+                } else {
+                    color::LIGHT_GRAY
+                };
+                let button = Button::new()
+                    .color(color)
+                    .label_color(color::BLACK)
+                    .label(&current_command_queue.name);
+                let button_event = item.set(button, &mut ui_cell);
 
-        let button_event = item.set(button, &mut ui_cell);
-
-        for _click in button_event {
-            task_manager.new_queue_if_no_running_process(&current_command_queue.commands, &current_program.working_directory, &current_program.download_command);
+                for _click in button_event {
+                    task_manager.new_queue_if_no_running_process(&current_command_queue.commands, &current_program.working_directory, &current_program.download_command);
+                }
+            },
+            Event::Selection(selection) => {
+                *command_queue_i = selection;
+            },
+            _ => (),
         }
     }
 

@@ -122,6 +122,7 @@ fn handle_keyboard_input<T: InputUpdater>(update: &mut T, keyboard_input: Keyboa
 
     match keyboard_input {
         KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Escape), ..} => update.set_quit(true),
+        KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Return), state: ElementState::Released, ..} => update.set_select(true),
         KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Left), state: ElementState::Pressed, ..} => update.update_left(KeyEvent::KeyDown, current_time),
         KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Left), state: ElementState::Released, ..} => update.update_left(KeyEvent::KeyUp, current_time),
         KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Right), state: ElementState::Pressed, ..} => update.update_right(KeyEvent::KeyDown, current_time),
