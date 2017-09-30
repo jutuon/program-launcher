@@ -12,6 +12,8 @@ use glium::{Display, Frame};
 use std::rc::Rc;
 
 
+use utils::TimeMilliseconds;
+
 use glium::glutin::{
     WindowBuilder,
     Event,
@@ -63,15 +65,20 @@ impl Window for GliumWindow {
         }
     }
 
-    fn update_input<T: InputUpdater>(&mut self, update: &mut T, ui: &mut Ui) -> bool {
+    fn update_input<T: InputUpdater>(&mut self, update: &mut T, ui: &mut Ui, current_time: &TimeMilliseconds) -> bool {
         let display = &self.display;
-        let mut ui_event = false;
+        let mut event_update = false;
 
         self.event_loop.poll_events(|event| {
             match event {
-                Event::WindowEvent { event: WindowEvent::Closed, ..} => update.set_quit(true),
+                Event::WindowEvent { event: WindowEvent::Closed, ..} => {
+                    update.set_quit(true);
+                    event_update = true;
+                }
                 Event::WindowEvent { event: WindowEvent::KeyboardInput {input, ..}, ..} => {
-                    handle_keyboard_input(update, input);
+                    if handle_keyboard_input(update, input, current_time) {
+                        event_update = true;
+                    }
                 }
                 //event => println!("{:?}", event),
                 _ => (),
@@ -79,11 +86,11 @@ impl Window for GliumWindow {
 
             if let Some(conrod_event) = convert_event(event, display) {
                 ui.handle_event(conrod_event);
-                ui_event = true;
+                event_update = true;
             }
         });
 
-        return ui_event;
+        return event_update;
     }
 
     fn draw(&mut self) -> Frame {
@@ -106,11 +113,27 @@ impl Facade for GliumWindow {
     }
 }
 
-fn handle_keyboard_input<T: InputUpdater>(update: &mut T, keyboard_input: KeyboardInput) {
+/// Returns true if InputUpdater was updated.
+fn handle_keyboard_input<T: InputUpdater>(update: &mut T, keyboard_input: KeyboardInput, current_time: &TimeMilliseconds) -> bool {
+    use input::utils::KeyEvent;
+    use glium::glutin::ElementState;
+
+    let mut updated_input = true;
+
     match keyboard_input {
         KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Escape), ..} => update.set_quit(true),
-        _ => (),
+        KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Left), state: ElementState::Pressed, ..} => update.update_left(KeyEvent::KeyDown, current_time),
+        KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Left), state: ElementState::Released, ..} => update.update_left(KeyEvent::KeyUp, current_time),
+        KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Right), state: ElementState::Pressed, ..} => update.update_right(KeyEvent::KeyDown, current_time),
+        KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Right), state: ElementState::Released, ..} => update.update_right(KeyEvent::KeyUp, current_time),
+        KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Up), state: ElementState::Pressed, ..} => update.update_up(KeyEvent::KeyDown, current_time),
+        KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Up), state: ElementState::Released, ..} => update.update_up(KeyEvent::KeyUp, current_time),
+        KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Down), state: ElementState::Pressed, ..} => update.update_down(KeyEvent::KeyDown, current_time),
+        KeyboardInput {virtual_keycode: Some(VirtualKeyCode::Down), state: ElementState::Released, ..} => update.update_down(KeyEvent::KeyUp, current_time),
+        _ => updated_input = false,
     }
+
+    updated_input
 }
 
 

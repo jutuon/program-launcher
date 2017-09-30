@@ -13,6 +13,8 @@ use std::collections::VecDeque;
 
 use window::Window;
 
+use input::Input;
+
 pub struct UiManager {
     widget_ids: WidgetIds,
     ui: Ui,
@@ -52,6 +54,28 @@ impl UiManager {
             self.console_text.push_str(text);
             self.console_text.push('\n');
         }
+    }
+
+    /// Return true if ui needs updating
+    pub fn input_update<T: Input>(&mut self, input: &mut T, programs: &ProgramLibrary) -> bool {
+        let mut update_ui = false;
+
+        if input.down() {
+            self.list_selection_index += 1;
+            update_ui = true;
+            if self.list_selection_index >= programs.programs.len() {
+                self.list_selection_index = programs.programs.len() - 1;
+            }
+        }
+
+        if input.up() {
+            if self.list_selection_index > 0 {
+                self.list_selection_index -= 1;
+                update_ui = true;
+            }
+        }
+
+        update_ui
     }
 
     pub fn set_widgets<T: Window>(&mut self, task_manager: &mut TaskManager, programs: &ProgramLibrary, window: &mut T) {
@@ -99,7 +123,43 @@ fn set_widgets<T: Window>(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i:
     use conrod::widget::{Canvas, Widget, Button, Text, ListSelect, List, Tabs, Toggle};
     use conrod::{color, Colorable, Labelable, Positionable, Sizeable};
 
-    use conrod::widget::list_select::Event;
+    use conrod::widget::list_select::{Mode, Event, State, PendingEvents, Direction, Single};
+    use conrod::event::{Click, KeyPress};
+
+    // Wrapper type for Single. Disables key_selection method.
+    struct ClickMode(Single);
+    impl Mode for ClickMode {
+
+        type Selection = usize;
+
+        fn click_selection<F, D, S>(
+            &self,
+            c: Click,
+            i: usize,
+            num_items: usize,
+            state: &State,
+            is_selected: F,
+            pending: &mut PendingEvents<Self::Selection, D, S>
+        ) where
+            F: Fn(usize) -> bool {
+                self.0.click_selection(c, i, num_items, state, is_selected, pending);
+        }
+
+        fn key_selection<F, D, S>(
+            &self,
+            _press: KeyPress,
+            _i: usize,
+            _num_items: usize,
+            _state: &State,
+            _is_selected: F,
+            _pending: &mut PendingEvents<Self::Selection, D, S>
+        ) where
+            F: Fn(usize) -> bool,
+            D: Direction {
+            // Keyboard support disabled
+        }
+
+    }
 
     // UI layout
 
@@ -107,7 +167,8 @@ fn set_widgets<T: Window>(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i:
         .color(color::GREEN)
         .set(ids.canvas, &mut ui_cell);
 
-    Tabs::new(&[(ids.canvas_library, "Library"), (ids.canvas_settings, "Settings")])
+    //Tabs::new(&[(ids.canvas_library, "Library"), (ids.canvas_settings, "Settings")])
+    Tabs::new(&[(ids.canvas_library, "Library")])
         .starting_canvas(ids.canvas_library)
         .middle_of(ids.canvas)
         .wh_of(ids.canvas)
@@ -130,7 +191,7 @@ fn set_widgets<T: Window>(mut ui_cell: UiCell, ids: &mut WidgetIds, selection_i:
 
     // Program list
 
-    let (mut events, scrollbar) = ListSelect::single(program_library.programs.len())
+    let (mut events, scrollbar) = ListSelect::new(program_library.programs.len(), ClickMode(Single{}))
         .flow_down()
         .scrollbar_next_to()
         .item_size(30.0)

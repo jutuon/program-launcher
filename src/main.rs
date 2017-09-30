@@ -61,8 +61,18 @@ fn main() {
             }
         }
 
-        if window.update_input(&mut input, ui.ui_mut()) || console_text_update {
-            let (task_manager, programs) = library.task_manager_mut_and_programs();
+        let mut update_ui = false;
+        let (task_manager, programs) = library.task_manager_mut_and_programs();
+
+        if window.update_input(&mut input, ui.ui_mut(), time_manager.current_time()) || console_text_update {
+            update_ui = true;
+        }
+
+        if ui.input_update(&mut input, programs) {
+            update_ui = true;
+        }
+
+        if update_ui {
             ui.set_widgets(task_manager, programs, &mut window);
         }
 
@@ -78,6 +88,7 @@ fn main() {
 
         fps.update(time_manager.current_time(), true);
 
+        input.update(time_manager.current_time());
 
     }
 }

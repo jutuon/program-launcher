@@ -9,11 +9,13 @@ use input::InputUpdater;
 use glium::Frame;
 use glium::backend::Facade;
 
+use utils::TimeMilliseconds;
+
 pub trait Window : Facade {
     fn new(title: &str, width: u32, height: u32, full_screen: bool) -> Self;
 
-    /// Returns true if there were event for ui.
-    fn update_input<T: InputUpdater>(&mut self, update: &mut T, ui: &mut Ui) -> bool;
+    /// Returns true if ui or InputUpdater was updated.
+    fn update_input<T: InputUpdater>(&mut self, update: &mut T, ui: &mut Ui, current_time: &TimeMilliseconds) -> bool;
     fn draw(&mut self) -> Frame;
 
     fn full_screen(&self) -> bool;
