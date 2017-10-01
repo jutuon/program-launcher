@@ -2,8 +2,11 @@
 #[macro_use]
 extern crate conrod;
 
-extern crate glium;
+#[cfg(feature = "glutin-window")]
 extern crate gilrs;
+
+#[cfg(feature = "sdl2-window")]
+extern crate sdl2;
 
 extern crate backend_library;
 
@@ -15,7 +18,6 @@ pub mod utils;
 
 use renderer::{Renderer, OpenGLRenderer};
 
-use window::glium::GliumWindow;
 use window::Window;
 use input::{Input, InputManager};
 
@@ -42,8 +44,9 @@ fn main() {
 
     let mut library = ProgramLibraryManager::new(LIBRARY_DIRECTORY_NAME).expect("library loading error");
 
+    #[cfg(feature = "glutin-window")]
+    let mut window = window::glutin::GlutinWindow::new("Program launcher", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, full_screen);
 
-    let mut window = GliumWindow::new("Program launcher", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, full_screen);
     let mut input = InputManager::new();
     let mut ui = ui::UiManager::new();
 

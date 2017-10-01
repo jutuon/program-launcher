@@ -1,22 +1,23 @@
 
-
-use window::Window;
-
-use input::InputUpdater;
+use conrod::backend::glium::glium;
+use conrod::backend::glium::glium::glutin;
+use gilrs;
 
 use conrod::Ui;
 use conrod::backend::winit::{convert_event};
-use glium::backend::{Facade, Context};
-use glium::{Display, Frame};
+
+use self::glium::backend::{Facade, Context};
+use self::glium::{Display, Frame};
+
+use gilrs::{Gilrs};
 
 use std::rc::Rc;
 
-use gilrs::{Gilrs};
-use gilrs;
-
+use window::Window;
+use input::InputUpdater;
 use utils::TimeMilliseconds;
 
-use glium::glutin::{
+use self::glutin::{
     WindowBuilder,
     Event,
     KeyboardInput,
@@ -28,9 +29,8 @@ use glium::glutin::{
     Api,
 };
 
-use glium::glutin;
 
-pub struct GliumWindow {
+pub struct GlutinWindow {
     display: Display,
     event_loop: EventsLoop,
     full_screen: bool,
@@ -38,13 +38,13 @@ pub struct GliumWindow {
     game_controllers: Gilrs,
 }
 
-impl GliumWindow {
+impl GlutinWindow {
     pub fn display(&self) -> &Display {
         &self.display
     }
 }
 
-impl Window for GliumWindow {
+impl Window for GlutinWindow {
     fn new(title: &str, width: u32, height: u32, full_screen: bool) -> Self {
         let event_loop = EventsLoop::new();
 
@@ -62,7 +62,7 @@ impl Window for GliumWindow {
 
         let display = Display::new(window, context, &event_loop).expect("error");
 
-        GliumWindow {
+        GlutinWindow {
             display,
             event_loop,
             full_screen,
@@ -123,7 +123,7 @@ impl Window for GliumWindow {
     }
 }
 
-impl Facade for GliumWindow {
+impl Facade for GlutinWindow {
     fn get_context(&self) -> &Rc<Context> {
         self.display.get_context()
     }
@@ -132,7 +132,7 @@ impl Facade for GliumWindow {
 /// Returns true if InputUpdater was updated.
 fn handle_keyboard_input<T: InputUpdater>(update: &mut T, keyboard_input: KeyboardInput, current_time: &TimeMilliseconds) -> bool {
     use input::utils::KeyEvent;
-    use glium::glutin::ElementState;
+    use self::glutin::ElementState;
 
     let mut updated_input = true;
 

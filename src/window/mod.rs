@@ -1,13 +1,16 @@
 
 
+#[cfg(feature = "sdl2-window")]
 pub mod sdl2;
-pub mod glium;
+
+#[cfg(feature = "glutin-window")]
+pub mod glutin;
 
 use conrod::Ui;
 use input::InputUpdater;
 
-use glium::Frame;
-use glium::backend::Facade;
+use conrod::backend::glium::glium::Frame;
+use conrod::backend::glium::glium::backend::Facade;
 
 use utils::TimeMilliseconds;
 

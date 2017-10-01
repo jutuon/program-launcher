@@ -4,12 +4,21 @@ version = "0.1.0"
 authors = ["Juuso Tuononen <jutuon@outlook.com>"]
 
 [dependencies]
-glium = "0.17.1"
-gilrs = "0.4"
+gilrs  = { version = "0.4"   , optional = true }
+sdl2   = { version = "0.30.0", optional = true }
 backend_library = { path = "backend_library"}
 
 [dependencies.conrod]
-version = "0.54.0"
-features = ["winit", "glium"]
+version = "0.55.0"
+features = ["glium"]
+
+
+[features]
+
+default = ["glutin-window"]
+
+sdl2-window = ["sdl2"]
+glutin-window = ["gilrs", "conrod/winit"]
+
 
 [workspace]
