@@ -3,8 +3,9 @@ use conrod::backend::glium::glium;
 use conrod::backend::glium::glium::glutin;
 use gilrs;
 
+use conrod::position::Scalar;
 use conrod::Ui;
-use conrod::backend::winit::{convert_event};
+use conrod::backend::winit::{convert_event, WinitWindow};
 
 use self::glium::backend::{Facade, Context};
 use self::glium::{Display, Frame};
@@ -120,6 +121,18 @@ impl Window for GlutinWindow {
     fn set_full_screen(&mut self, value: bool) {
         self.full_screen = value;
         // TODO: full screen support
+    }
+
+    fn opengl_version(&self) -> &glium::Version {
+        self.display.get_opengl_version()
+    }
+
+    fn width_and_height(&self) -> (u32, u32) {
+        self.display.get_framebuffer_dimensions()
+    }
+
+    fn dpi_factor(&self) -> Scalar {
+        self.display.hidpi_factor() as Scalar
     }
 }
 

@@ -8,7 +8,6 @@ use conrod::backend::glium::glium::Surface;
 use conrod::backend::glium::Renderer as UiRenderer;
 
 use window::Window;
-use window::glutin::GlutinWindow;
 
 use ui::UiManager;
 
@@ -31,17 +30,17 @@ impl OpenGLRenderer {
 
 
 pub trait Renderer {
-    fn render(&mut self, window: &mut GlutinWindow, ui: &mut UiManager);
+    fn render<T: Window>(&mut self, window: &mut T, ui: &mut UiManager);
 }
 
 
 impl Renderer for OpenGLRenderer {
-    fn render(&mut self, window: &mut GlutinWindow, ui: &mut UiManager) {
+    fn render<T: Window>(&mut self, window: &mut T, ui: &mut UiManager) {
         let mut frame = window.draw();
         frame.clear_color(0.0, 0.0, 0.0, 0.0);
 
         if let Some(primitives) = ui.ui_mut().draw_if_changed() {
-           self.ui_renderer.fill(window.display(), primitives, &self.image_map);
+           self.ui_renderer.fill_non_glutin_window(window.opengl_version(), window.width_and_height(), window.dpi_factor(), primitives, &self.image_map);
         }
 
         self.ui_renderer.draw(window, &mut frame, &self.image_map).expect("ui draw error");

@@ -9,7 +9,9 @@ pub mod glutin;
 use conrod::Ui;
 use input::InputUpdater;
 
-use conrod::backend::glium::glium::Frame;
+use conrod::position::Scalar;
+
+use conrod::backend::glium::glium::{Frame, Version};
 use conrod::backend::glium::glium::backend::Facade;
 
 use utils::TimeMilliseconds;
@@ -24,4 +26,8 @@ pub trait Window : Facade {
     fn full_screen(&self) -> bool;
 
     fn set_full_screen(&mut self, value: bool);
+
+    fn opengl_version(&self) -> &Version;
+    fn width_and_height(&self) -> (u32, u32);
+    fn dpi_factor(&self) -> Scalar;
 }
